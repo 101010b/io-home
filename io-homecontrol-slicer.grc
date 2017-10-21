@@ -1,0 +1,427 @@
+<?xml version='1.0' encoding='utf-8'?>
+<?grc format='1' created='3.7.11'?>
+<flow_graph>
+  <timestamp>Sat Oct 21 14:25:14 2017</timestamp>
+  <block>
+    <key>options</key>
+    <param>
+      <key>author</key>
+      <value>Thomas Buck</value>
+    </param>
+    <param>
+      <key>window_size</key>
+      <value></value>
+    </param>
+    <param>
+      <key>category</key>
+      <value>[GRC Hier Blocks]</value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>description</key>
+      <value>Slices the IO-Homecontrol Stream to a bit stream</value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(8, 8)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>generate_options</key>
+      <value>hb</value>
+    </param>
+    <param>
+      <key>hier_block_src_path</key>
+      <value>.:</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>IO_Homecontrol_Slicer</value>
+    </param>
+    <param>
+      <key>max_nouts</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>qt_qss_theme</key>
+      <value></value>
+    </param>
+    <param>
+      <key>realtime_scheduling</key>
+      <value></value>
+    </param>
+    <param>
+      <key>run_command</key>
+      <value>{python} -u {filename}</value>
+    </param>
+    <param>
+      <key>run_options</key>
+      <value>prompt</value>
+    </param>
+    <param>
+      <key>run</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>thread_safe_setters</key>
+      <value></value>
+    </param>
+    <param>
+      <key>title</key>
+      <value>IO Homecontrol Slicer</value>
+    </param>
+  </block>
+  <block>
+    <key>parameter</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(8, 252)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>channel</value>
+    </param>
+    <param>
+      <key>label</key>
+      <value>Channel</value>
+    </param>
+    <param>
+      <key>short_id</key>
+      <value></value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>intx</value>
+    </param>
+    <param>
+      <key>value</key>
+      <value>0</value>
+    </param>
+  </block>
+  <block>
+    <key>epy_block</key>
+    <param>
+      <key>bingroup</key>
+      <value>1</value>
+    </param>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_io_cache</key>
+      <value>('IO-HomeControl Decoder', 'blk', [('samp_rate', '1.0'), ('channel', '0'), ('showhex', '0'), ('hexorder', '0'), ('hexgroup', '2'), ('showbin', '1'), ('bingroup', '1')], [('0', 'byte', 1)], [], 'IO-HomeControl Decoder \n\tDecodes the already demodulated signal to ha hexadecimal message fro further processing\n\t', ['bingroup', 'channel', 'hexgroup', 'hexorder', 'samp_rate', 'showbin', 'showhex'])</value>
+    </param>
+    <param>
+      <key>channel</key>
+      <value>channel</value>
+    </param>
+    <param>
+      <key>_source_code</key>
+      <value>"""
+Embedded Python Blocks:
+
+Each time this file is saved, GRC will instantiate the first class it finds
+to get ports and parameters of your block. The arguments to __init__  will
+be the parameters. All of them are required to have default values!
+"""
+
+import numpy as np
+from gnuradio import gr
+
+
+class blk(gr.sync_block):  # other base classes are basic_block, decim_block, interp_block
+    """IO-HomeControl Decoder 
+	Decodes the already demodulated signal to ha hexadecimal message fro further processing
+	"""
+
+    def __init__(self, samp_rate=1.0, channel=0, showhex=0, hexorder=0, hexgroup=2, showbin=1, bingroup=1):  # only default arguments here
+        """arguments to this function show up as parameters in GRC"""
+        gr.sync_block.__init__(
+            self,
+            name='IO-HomeControl Decoder',   # will show up in GRC
+            in_sig=[np.byte],
+            out_sig=[]
+        )
+        # if an attribute with the same name as a parameter is found,
+        # a callback is registered (properties work, too).
+        self.samp_rate = samp_rate
+        self.channel=channel
+        self.showhex=showhex
+        self.hexorder=0
+        self.hexgroup=0
+        self.showbin=1
+        self.bingroup=bingroup
+        # Internal Variables        
+        self.last=0
+        self.mode=0
+        self.lasttrans=0        
+        self.msglen=38
+        self.byts = [int(0)] * self.msglen
+        self.bits = [int(0)] * self.msglen * 8
+        self.nextbit=0
+        self.nextsmp=0
+        self.period=0
+        self.tick=0
+        self.unsync_bit_min=8
+        self.unsync_bit_max=10
+        self.sync_bit_min=7
+        self.sync_bit_max=11
+        self.sync_lost=13
+        self.sync_min_cycles=200
+        
+
+
+    def work(self, input_items, output_items):
+        """example: multiply with constant"""
+        self.decodeChannel(input_items[0])
+        # output_items[0][:] = input_items[0] * 0.1
+        return len(input_items[0])
+
+
+    def makeMessage(self,tick,bits,byts):
+        s = "io_home_control_data, ch=%i, tick=%i" %(self.channel,tick)
+        if self.showhex != 0:
+            s+=", hex= "
+            if self.hexgroup &lt;= 0:
+                for i in range(len(byts)):
+                    s+="%02X" %(byts[i])
+            else:
+                grpctr=self.hexgroup         
+                for i in range(len(byts)):
+                    s+="%02X" %(byts[i])
+                    grpctr-=1
+                    if grpctr &lt;= 0:
+                        grpctr=self.hexgroup
+                        s+=" "
+        if self.showbin != 0:
+            s+=", bin= "
+            if self.bingroup &lt;= 0:
+                for i in range(len(bits)):
+                    s+="%i" %(bits[i])
+            else:
+                grpctr=self.bingroup         
+                for i in range(len(bits)):
+                    s+="%i" %(bits[i])
+                    grpctr-=1
+                    if grpctr &lt;= 0:
+                        grpctr=self.bingroup
+                        s+=" "                
+        return s
+    
+    def decodeChannel(self,data) :
+        l=len(data)
+        for smp in range(0,l):
+            i=self.tick
+            v=int(data[smp])            
+            if self.mode == 0:
+                # Unsynced
+                if v == 0 and self.last == 1:
+                    # high to low
+                    delay=i-self.lasttrans
+                    if delay &gt;= 8 and delay &lt;= 10:
+                        # Valid period
+                        self.syncstart = self.lasttrans
+                        self.synccount = 1
+                        self.mode = 1
+                    self.lasttrans=i
+            elif self.mode == 1:
+                # Sync started
+                if v == 0 and self.last == 1:
+                    # high to low 
+                    delay=i-self.lasttrans
+                    if delay &gt;= 7 and delay &lt;= 11:
+                        self.synccount+=1
+                    else:
+                        self.mode = 0
+                    self.lasttrans = i
+                else:
+                    if i - self.lasttrans &gt;= 13:
+                        # lost sync
+                        self.mode = 0
+                        if self.synccount &gt;= 200:
+                            # success
+                            self.mode = 2
+                            self.nextbit = 0                        
+                            self.period=(self.lasttrans-self.syncstart)/self.synccount
+                            self.nextsmp=int(self.lasttrans-self.period/4+(self.nextbit+3+8)*self.period/2)
+                            self.byts = [0] * self.msglen
+                            self.bits = [0] * self.msglen * 8
+            elif self.mode == 2:
+                if i == self.nextsmp:
+                    self.bits[self.nextbit] = v
+                    self.byts[int(self.nextbit/8)] |= v &lt;&lt; (7-self.nextbit%8)
+                    
+                    self.nextbit+=1
+                    self.nextsmp = int(self.lasttrans-self.period/4+(self.nextbit+3+8)*self.period/2)
+                    if self.nextbit &gt;= len(self.bits):
+                        # done
+                        self.mode = 0
+                        ms = self.makeMessage(self.syncstart,self.bits,self.byts)
+                        print(ms)
+            
+            self.last=v
+            self.tick+=1            
+       
+</value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>1</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(552, 152)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>hexgroup</key>
+      <value>2</value>
+    </param>
+    <param>
+      <key>hexorder</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>epy_block_0</value>
+    </param>
+    <param>
+      <key>samp_rate</key>
+      <value>srate</value>
+    </param>
+    <param>
+      <key>showbin</key>
+      <value>1</value>
+    </param>
+    <param>
+      <key>showhex</key>
+      <value>0</value>
+    </param>
+  </block>
+  <block>
+    <key>pad_source</key>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(336, 196)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>pad_source_0</value>
+    </param>
+    <param>
+      <key>label</key>
+      <value>in</value>
+    </param>
+    <param>
+      <key>num_streams</key>
+      <value>1</value>
+    </param>
+    <param>
+      <key>optional</key>
+      <value>False</value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>byte</value>
+    </param>
+    <param>
+      <key>vlen</key>
+      <value>1</value>
+    </param>
+  </block>
+  <block>
+    <key>parameter</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(8, 164)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>srate</value>
+    </param>
+    <param>
+      <key>label</key>
+      <value>Sample Rate</value>
+    </param>
+    <param>
+      <key>short_id</key>
+      <value></value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>eng_float</value>
+    </param>
+    <param>
+      <key>value</key>
+      <value>2.4e6</value>
+    </param>
+  </block>
+  <connection>
+    <source_block_id>pad_source_0</source_block_id>
+    <sink_block_id>epy_block_0</sink_block_id>
+    <source_key>0</source_key>
+    <sink_key>0</sink_key>
+  </connection>
+</flow_graph>
