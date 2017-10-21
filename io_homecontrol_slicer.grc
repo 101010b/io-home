@@ -46,7 +46,7 @@
     </param>
     <param>
       <key>id</key>
-      <value>IO_Homecontrol_Slicer</value>
+      <value>io_homecontrol_slicer</value>
     </param>
     <param>
       <key>max_nouts</key>
@@ -97,6 +97,49 @@
     </param>
     <param>
       <key>_coordinate</key>
+      <value>(112, 432)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>bingroup</value>
+    </param>
+    <param>
+      <key>label</key>
+      <value>BinGrouping</value>
+    </param>
+    <param>
+      <key>short_id</key>
+      <value></value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>intx</value>
+    </param>
+    <param>
+      <key>value</key>
+      <value>0</value>
+    </param>
+  </block>
+  <block>
+    <key>parameter</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
       <value>(8, 252)</value>
     </param>
     <param>
@@ -128,7 +171,7 @@
     <key>epy_block</key>
     <param>
       <key>bingroup</key>
-      <value>1</value>
+      <value>bingroup</value>
     </param>
     <param>
       <key>alias</key>
@@ -136,7 +179,7 @@
     </param>
     <param>
       <key>_io_cache</key>
-      <value>('IO-HomeControl Decoder', 'blk', [('samp_rate', '1.0'), ('channel', '0'), ('showhex', '0'), ('hexorder', '0'), ('hexgroup', '2'), ('showbin', '1'), ('bingroup', '1')], [('0', 'byte', 1)], [], 'IO-HomeControl Decoder \n\tDecodes the already demodulated signal to ha hexadecimal message fro further processing\n\t', ['bingroup', 'channel', 'hexgroup', 'hexorder', 'samp_rate', 'showbin', 'showhex'])</value>
+      <value>('IO-HomeControl Decoder', 'blk', [('samp_rate', '1.0'), ('channel', '0'), ('showhex', '0'), ('hexorder', '0'), ('hexgroup', '2'), ('showbin', '1'), ('bingroup', '1'), ('msglen', '38'), ('msgoffset', '0')], [('0', 'byte', 1)], [], 'IO-HomeControl Decoder \n\tDecodes the already demodulated signal to ha hexadecimal message fro further processing\n\t', ['bingroup', 'channel', 'hexgroup', 'hexorder', 'msglen', 'msgoffset', 'samp_rate', 'showbin', 'showhex'])</value>
     </param>
     <param>
       <key>channel</key>
@@ -161,7 +204,7 @@ class blk(gr.sync_block):  # other base classes are basic_block, decim_block, in
 	Decodes the already demodulated signal to ha hexadecimal message fro further processing
 	"""
 
-    def __init__(self, samp_rate=1.0, channel=0, showhex=0, hexorder=0, hexgroup=2, showbin=1, bingroup=1):  # only default arguments here
+    def __init__(self, samp_rate=1.0, channel=0, showhex=0, hexorder=0, hexgroup=2, showbin=1, bingroup=1, msglen=38, msgoffset=0):  # only default arguments here
         """arguments to this function show up as parameters in GRC"""
         gr.sync_block.__init__(
             self,
@@ -174,15 +217,16 @@ class blk(gr.sync_block):  # other base classes are basic_block, decim_block, in
         self.samp_rate = samp_rate
         self.channel=channel
         self.showhex=showhex
-        self.hexorder=0
-        self.hexgroup=0
-        self.showbin=1
+        self.hexorder=hexorder
+        self.hexgroup=hexgroup
+        self.showbin=showbin
         self.bingroup=bingroup
+        self.msglen=msglen
+        self.msgoffset=msgoffset
         # Internal Variables        
         self.last=0
         self.mode=0
         self.lasttrans=0        
-        self.msglen=38
         self.byts = [int(0)] * self.msglen
         self.bits = [int(0)] * self.msglen * 8
         self.nextbit=0
@@ -270,16 +314,23 @@ class blk(gr.sync_block):  # other base classes are basic_block, decim_block, in
                             self.mode = 2
                             self.nextbit = 0                        
                             self.period=(self.lasttrans-self.syncstart)/self.synccount
-                            self.nextsmp=int(self.lasttrans-self.period/4+(self.nextbit+3+8)*self.period/2)
                             self.byts = [0] * self.msglen
                             self.bits = [0] * self.msglen * 8
+                            self.nextsmp=int(self.lasttrans-self.period/4+(self.nextbit+3+8+self.msgoffset)*self.period/2)
+                            if self.nextsmp &lt;= i:
+                                # Error
+                                print("Bad Offset - cannot go that far back")
+                                self.mode=0
             elif self.mode == 2:
                 if i == self.nextsmp:
                     self.bits[self.nextbit] = v
-                    self.byts[int(self.nextbit/8)] |= v &lt;&lt; (7-self.nextbit%8)
+                    if self.hexorder == 0:
+                        self.byts[int(self.nextbit/8)] |= v &lt;&lt; (7-self.nextbit%8)
+                    else:
+                        self.byts[int(self.nextbit/8)] |= v &lt;&lt; (self.nextbit%8)
                     
                     self.nextbit+=1
-                    self.nextsmp = int(self.lasttrans-self.period/4+(self.nextbit+3+8)*self.period/2)
+                    self.nextsmp = int(self.lasttrans-self.period/4+(self.nextbit+3+8+self.msgoffset)*self.period/2)
                     if self.nextbit &gt;= len(self.bits):
                         # done
                         self.mode = 0
@@ -301,7 +352,7 @@ class blk(gr.sync_block):  # other base classes are basic_block, decim_block, in
     </param>
     <param>
       <key>_coordinate</key>
-      <value>(552, 152)</value>
+      <value>(552, 140)</value>
     </param>
     <param>
       <key>_rotation</key>
@@ -309,15 +360,23 @@ class blk(gr.sync_block):  # other base classes are basic_block, decim_block, in
     </param>
     <param>
       <key>hexgroup</key>
-      <value>2</value>
+      <value>hexgroup</value>
     </param>
     <param>
       <key>hexorder</key>
-      <value>0</value>
+      <value>hexorder</value>
     </param>
     <param>
       <key>id</key>
       <value>epy_block_0</value>
+    </param>
+    <param>
+      <key>msglen</key>
+      <value>msglen</value>
+    </param>
+    <param>
+      <key>msgoffset</key>
+      <value>msgoffset</value>
     </param>
     <param>
       <key>samp_rate</key>
@@ -325,10 +384,182 @@ class blk(gr.sync_block):  # other base classes are basic_block, decim_block, in
     </param>
     <param>
       <key>showbin</key>
-      <value>1</value>
+      <value>showbin</value>
     </param>
     <param>
       <key>showhex</key>
+      <value>showhex</value>
+    </param>
+  </block>
+  <block>
+    <key>parameter</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(216, 344)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>hexgroup</value>
+    </param>
+    <param>
+      <key>label</key>
+      <value>HexGrouping</value>
+    </param>
+    <param>
+      <key>short_id</key>
+      <value></value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>intx</value>
+    </param>
+    <param>
+      <key>value</key>
+      <value>2</value>
+    </param>
+  </block>
+  <block>
+    <key>parameter</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(112, 344)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>hexorder</value>
+    </param>
+    <param>
+      <key>label</key>
+      <value>HexOrder</value>
+    </param>
+    <param>
+      <key>short_id</key>
+      <value></value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>intx</value>
+    </param>
+    <param>
+      <key>value</key>
+      <value>0</value>
+    </param>
+  </block>
+  <block>
+    <key>parameter</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(8, 520)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>msglen</value>
+    </param>
+    <param>
+      <key>label</key>
+      <value>MessageLen in bytes</value>
+    </param>
+    <param>
+      <key>short_id</key>
+      <value></value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>intx</value>
+    </param>
+    <param>
+      <key>value</key>
+      <value>38</value>
+    </param>
+  </block>
+  <block>
+    <key>parameter</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(168, 520)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>msgoffset</value>
+    </param>
+    <param>
+      <key>label</key>
+      <value>Messageoffset in bits</value>
+    </param>
+    <param>
+      <key>short_id</key>
+      <value></value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>intx</value>
+    </param>
+    <param>
+      <key>value</key>
       <value>0</value>
     </param>
   </block>
@@ -373,6 +604,92 @@ class blk(gr.sync_block):  # other base classes are basic_block, decim_block, in
     <param>
       <key>vlen</key>
       <value>1</value>
+    </param>
+  </block>
+  <block>
+    <key>parameter</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(8, 432)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>showbin</value>
+    </param>
+    <param>
+      <key>label</key>
+      <value>ShowBin</value>
+    </param>
+    <param>
+      <key>short_id</key>
+      <value></value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>intx</value>
+    </param>
+    <param>
+      <key>value</key>
+      <value>0</value>
+    </param>
+  </block>
+  <block>
+    <key>parameter</key>
+    <param>
+      <key>alias</key>
+      <value></value>
+    </param>
+    <param>
+      <key>comment</key>
+      <value></value>
+    </param>
+    <param>
+      <key>_enabled</key>
+      <value>True</value>
+    </param>
+    <param>
+      <key>_coordinate</key>
+      <value>(8, 344)</value>
+    </param>
+    <param>
+      <key>_rotation</key>
+      <value>0</value>
+    </param>
+    <param>
+      <key>id</key>
+      <value>showhex</value>
+    </param>
+    <param>
+      <key>label</key>
+      <value>ShowHex</value>
+    </param>
+    <param>
+      <key>short_id</key>
+      <value></value>
+    </param>
+    <param>
+      <key>type</key>
+      <value>intx</value>
+    </param>
+    <param>
+      <key>value</key>
+      <value>0</value>
     </param>
   </block>
   <block>
